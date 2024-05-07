@@ -28,7 +28,6 @@ driver_path = current_path / 'chromedriver' / 'chromedriver.exe'
 user_agent = get_from_settings('user_agents')
 
 chrome_options = Options()
-chrome_options.add_argument("--headless")
 chrome_options.add_argument(f"user-agent={random.choice(user_agent)}")
 
 driver = webdriver.Chrome(
