@@ -1,2 +1,2 @@
 # oddsportal_crawler
-scraping event rows
+Scraping data from oddsportal about MLB (Baseball USA) and save data in xlsx file.

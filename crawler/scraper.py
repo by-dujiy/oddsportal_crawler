@@ -6,8 +6,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from time import sleep
 from .utility import get_from_settings
+from db import EventRow, Session
+from time import sleep
+from datetime import datetime
 import pathlib
 import os
 import random
@@ -15,7 +17,7 @@ import logging
 
 
 MAIN_URL = "https://www.oddsportal.com/"
-LINK_LIST = []
+CURRENT_YEAR = datetime.now().year
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -48,24 +50,35 @@ def aprove_cookie():
     cookie_button.click()
 
 
-def get_pagination(driver, year):
-    driver.get(f"{MAIN_URL}baseball/usa/mlb-{year}/results/")
+def get_pagination(driver, year: int) -> int:
+    logging.info(f"current year - {CURRENT_YEAR}")
+    if year == CURRENT_YEAR:
+        driver.get(f"{MAIN_URL}baseball/usa/mlb/results/")
+    else:
+        driver.get(f"{MAIN_URL}baseball/usa/mlb-{year}/results/")
     sleep(1)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+    sleep(3)
     pagination = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((
             By.XPATH,
             "//div[contains(@class, 'pagination')]"))
     )
-    pag_list = pagination.find_elements(By.XPATH, "//a[@data-number]")
-    return pag_list[-1].get_attribute('data-number')
+    soup = BeautifulSoup(driver.page_source, "lxml")
+    pagination = soup.find_all('a', attrs={'data-number': True})
+    return int(pagination[-1].text)
 
 
 def scraping_urls(driver, year, page):
-    driver.get(f"{MAIN_URL}baseball/usa/mlb-{year}/results/#/page/{page}/")
-    sleep(2)
+    if year == CURRENT_YEAR:
+        driver.get(f"{MAIN_URL}baseball/usa/mlb/results/#/page/{page}/")
+    else:
+        driver.get(f"{MAIN_URL}baseball/usa/mlb-{year}/results/#/page/{page}/")
+    sleep(1)
+    driver.refresh()
+    sleep(4)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    sleep(0.5)
+    sleep(1)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     footer = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((
@@ -76,22 +89,21 @@ def scraping_urls(driver, year, page):
     ActionChains(driver).scroll_to_element(footer).perform()
     soup = BeautifulSoup(driver.page_source, "lxml")
     events = soup.find_all('div', class_='eventRow')
-    for n, event in enumerate(events, 1):
-        url_link = event.find('a').get('href')
-        logging.info(f"---- row {n}, url: {url_link}")
-        LINK_LIST.append(url_link)
+    with Session() as session:
+        with session.begin():
+            for n, event in enumerate(events, 1):
+                event_id = event.get('id')
+                url = event.find('a', class_='w-full').get('href')
+                logging.info(f"---- row {n}, url: {url}, id: {event_id}")
+                row = EventRow(event_id=event_id, event_url=url)
+                session.add(row)
+                logging.info(f"added {row}")
 
 
 def scraping_eventrow():
-    for year in range(2016, 2025):
+    for year in range(2022, 2025):
         logging.info(f"year {year}")
         max_pagination = get_pagination(driver, year)
         for p in range(1, int(max_pagination)+1):
             logging.info(f"-- page: {p}")
             scraping_urls(driver, year, p)
-
-
-def run_crawler():
-    aprove_cookie()
-    scraping_eventrow()
-    driver.guit()

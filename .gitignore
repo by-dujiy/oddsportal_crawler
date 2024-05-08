@@ -240,5 +240,8 @@ fabric.properties
 *.xlsx
 *.docx
 
+# ignore jupyter-notebook
+*.ipynb
+
 #
 chromedriver/

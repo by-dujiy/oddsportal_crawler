@@ -1,16 +1,14 @@
 from .db import Model
-from sqlalchemy import String, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class EventRow(Model):
     __tablename__ = 'event_rows'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    event_id: Mapped[str] = mapped_column(String(8), index=True)
+    event_id: Mapped[str] = mapped_column(String(8))
     event_url: Mapped[str] = mapped_column(unique=True)
-
-    odds_data: Mapped["OddsData"] = relationship(back_populates="eventrow")
 
     def __repr__(self):
         return f"EventRow({self.id}, {self.event_id}, {self.event_url})"
@@ -40,9 +38,6 @@ class OddsData(Model):
     t2_handicap_open: Mapped[float]
     t1_handicap_clos: Mapped[float]
     t2_handicap_clos: Mapped[float]
-
-    event_id: Mapped[int] = mapped_column(ForeignKey("event_rows.id"))
-    event_row: Mapped["EventRow"] = relationship(back_populates="oddsdata")
 
     def __repr__(self) -> str:
         return (f"OddsData(date: {self.date}\n"
