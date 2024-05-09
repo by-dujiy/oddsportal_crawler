@@ -114,4 +114,53 @@ def scraping_eventrow(first_year: int = 2016, last_year: int = 2024):
 
 
 def scraping_event_data(event_url):
-    pass
+    driver.get(MAIN_URL+event_url[1:])
+    data_frame = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            "//main/div[3]/div[2]/div[1]/div[2]"))
+    )
+    event_date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
+    final_res = data_frame.find_element(By.XPATH,
+                                        "./div[3]/div[2]/strong").text
+    teams = driver.find_elements(By.XPATH,
+                                 "//span[contains(@class, 'truncate')]")
+
+    # scraping home/away partition
+    # find particular bookbaker
+    bookmakers = driver.find_elements(
+        By.XPATH,
+        "//div[contains(@class, 'border-black-borders flex h-9 border-b')]")
+    for elem in bookmakers:
+        if elem.find_element(By.XPATH, "./div/a[2]/p").text == 'Pinnacle':
+            pinnacle_elem = elem
+            break
+    # processing particular bookmeker and tooltips
+    # team 1 processing
+    ha_t1_clos_odd_elem = pinnacle_elem.find_element(
+        By.XPATH, "./div[2]//p[@class='height-content']")
+    print("ha t1 closing odds:", ha_t1_clos_odd_elem.text)
+    ActionChains(driver).move_to_element(ha_t1_clos_odd_elem).perform()
+    ha_t1_tooltip = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            "//div[contains(@class, 'tooltip')]"
+        ))
+    )
+    ha_open_ts = ha_t1_tooltip.find_element(
+        By.XPATH, "./div/div/div[2]/div[1]").text
+    ha_t1_open_odd = ha_t1_tooltip.find_element(
+        By.XPATH, "./div/div/div[2]/div[2]").text
+
+    # team 2 tooltip processing
+    ha_t2_clos_odd_elem = pinnacle_elem.find_element(
+        By.XPATH, "./div[3]//p[@class='height-content']")
+    ActionChains(driver).move_to_element(ha_t2_clos_odd_elem).perform()
+    ha_t2_tooltip = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            "//div[contains(@class, 'tooltip')]"
+        ))
+    )
+    ha_t2_open_odd = ha_t2_tooltip.find_element(
+        By.XPATH, "./div/div/div[2]/div[2]").text
