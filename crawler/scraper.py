@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver import ActionChains
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from .utility import get_from_settings
@@ -121,8 +122,15 @@ def scraping_event_data(event_url):
             "//main/div[3]/div[2]/div[1]/div[2]"))
     )
     event_date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
-    final_res = data_frame.find_element(By.XPATH,
-                                        "./div[3]/div[2]/strong").text
+    # catching exception if event was canceled
+    try:
+        res = data_frame.find_element(By.XPATH,
+                                      "./div[3]/div[2]/strong").text
+    except NoSuchElementException:
+        res = 'canceled!'
+    finally:
+        final_res = res
+
     teams = driver.find_elements(By.XPATH,
                                  "//span[contains(@class, 'truncate')]")
 
