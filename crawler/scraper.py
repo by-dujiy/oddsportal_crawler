@@ -100,10 +100,18 @@ def scraping_urls(driver, year, page):
                 logging.info(f"added {row}")
 
 
-def scraping_eventrow():
-    for year in range(2022, 2025):
+def scraping_eventrow(first_year: int = 2016, last_year: int = 2024):
+    """
+    Composite function for scraping event rows
+    Scraping even url's from pages and save in db
+    """
+    for year in range(first_year, last_year+1):
         logging.info(f"year {year}")
         max_pagination = get_pagination(driver, year)
         for p in range(1, int(max_pagination)+1):
             logging.info(f"-- page: {p}")
             scraping_urls(driver, year, p)
+
+
+def scraping_event_data(event_url):
+    pass
