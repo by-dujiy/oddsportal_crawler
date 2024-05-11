@@ -121,7 +121,7 @@ def scraping_event_data(event_url):
             By.XPATH,
             "//main/div[3]/div[2]/div[1]/div[2]"))
     )
-    event_date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
+    date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
     # catching exception if event was canceled
     try:
         res = data_frame.find_element(By.XPATH,
@@ -129,16 +129,19 @@ def scraping_event_data(event_url):
     except NoSuchElementException:
         res = 'canceled!'
     finally:
-        final_res = res
+        fin_res = res
 
     teams = driver.find_elements(By.XPATH,
                                  "//span[contains(@class, 'truncate')]")
+    team_1 = teams[0].text
+    team_2 = teams[1].text
 
     # scraping home/away partition
     # find particular bookbaker
     bookmakers = driver.find_elements(
         By.XPATH,
         "//div[contains(@class, 'border-black-borders flex h-9 border-b')]")
+    pinnacle_elem = ''
     for elem in bookmakers:
         if elem.find_element(By.XPATH, "./div/a[2]/p").text == 'Pinnacle':
             pinnacle_elem = elem
@@ -146,8 +149,8 @@ def scraping_event_data(event_url):
     # processing particular bookmeker and tooltips
     # team 1 processing
     ha_t1_clos_odd_elem = pinnacle_elem.find_element(
-        By.XPATH, "./div[2]//p[@class='height-content']")
-    print("ha t1 closing odds:", ha_t1_clos_odd_elem.text)
+        By.XPATH, "./div[2]//p[contains(@class, 'height-content')]")
+    t1_ha_clos = ha_t1_clos_odd_elem.text
     ActionChains(driver).move_to_element(ha_t1_clos_odd_elem).perform()
     ha_t1_tooltip = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((
@@ -155,20 +158,102 @@ def scraping_event_data(event_url):
             "//div[contains(@class, 'tooltip')]"
         ))
     )
-    ha_open_ts = ha_t1_tooltip.find_element(
+    ha_ts = ha_t1_tooltip.find_element(
         By.XPATH, "./div/div/div[2]/div[1]").text
-    ha_t1_open_odd = ha_t1_tooltip.find_element(
+    t1_ha_open = ha_t1_tooltip.find_element(
         By.XPATH, "./div/div/div[2]/div[2]").text
-
+    logging.info(f"t1 ha open {t1_ha_open}")
     # team 2 tooltip processing
-    ha_t2_clos_odd_elem = pinnacle_elem.find_element(
-        By.XPATH, "./div[3]//p[@class='height-content']")
-    ActionChains(driver).move_to_element(ha_t2_clos_odd_elem).perform()
+    t2_ha_clos_elem = pinnacle_elem.find_element(
+        By.XPATH, "./div[3]//p[contains(@class, 'height-content')]")
+    t2_ha_clos = t2_ha_clos_elem.text
+    ActionChains(driver).move_to_element(t2_ha_clos_elem).perform()
     ha_t2_tooltip = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((
             By.XPATH,
             "//div[contains(@class, 'tooltip')]"
         ))
     )
-    ha_t2_open_odd = ha_t2_tooltip.find_element(
+    t2_ha_open = ha_t2_tooltip.find_element(
         By.XPATH, "./div/div/div[2]/div[2]").text
+
+    for item in driver.find_elements(By.XPATH,
+                                     "//li[contains(@class, 'odds-item')]"):
+        if item.find_element(By.XPATH, "./span/div").text == "Asian Handicap":
+            item.click()
+
+    logging.info(f"before if, h1 clos.text: {t1_ha_clos}")
+    if float(t1_ha_clos) < float(t1_ha_open):
+        target = "Asian Handicap +1.5"
+    else:
+        target = "Asian Handicap -1.5"
+
+    logging.info(f"processing {target}")
+
+    odds_items = driver.find_elements(
+        By.XPATH, "//li[contains(@class, 'odds-item')]")
+
+    for item in odds_items:
+        if item.find_element(By.XPATH, "./span/div").text == "Asian Handicap":
+            item.click()
+
+    sleep(1)
+    handicaps = driver.find_elements(
+        By.XPATH,
+        "//div[@class='relative flex flex-col']")
+
+    for hc in handicaps:
+        if hc.find_element(By.XPATH, "./div/div[2]/p[1]").text == target:
+            hc.click()
+
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            "//div[contains(@class, ' border-black-borders border-b')]"
+        ))
+    )
+    bet_elements = driver.find_elements(
+        By.XPATH,
+        "//div[contains(@class, ' border-black-borders border-b')]"
+        )
+
+    for elem in bet_elements:
+        if elem.find_element(By.XPATH, "./div[1]/a[2]/p").text == 'Pinnacle':
+            print("Pinncale finded")
+            break
+
+    sleep(1)
+    odd_score = elem.find_element(By.XPATH,
+                                  "./div[3]//p[@class='height-content']"
+                                  )
+    ActionChains(driver).move_to_element(odd_score).perform()
+    odd_toltip = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH, "//div[contains(@class, 'tooltip')]"
+        ))
+    )
+    handicap_ts = odd_toltip.find_element(
+        By.XPATH, "./div/div/div[2]/div[1]").text
+    t1_handicap_open = odd_toltip.find_element(
+        By.XPATH, "./div/div/div[2]/div[2]").text
+    t1_handicap_clos = odd_toltip.find_element(
+        By.XPATH, "./div/div/div[1]/div[2]/div").text
+
+    odd_score_t2 = elem.find_element(By.XPATH,
+                                     "./div[4]//p[@class='height-content']"
+                                     )
+    ActionChains(driver).move_to_element(odd_score_t2).perform()
+    odd_toltip_t2 = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.XPATH, "//div[contains(@class, 'tooltip')]"
+        ))
+    )
+    t2_handicap_open = odd_toltip_t2.find_element(
+        By.XPATH, "./div/div/div[2]/div[2]").text
+    t2_handicap_clos = odd_toltip_t2.find_element(
+        By.XPATH, "./div/div/div[1]/div[2]/div").text
+    logging.info((f"{date}. {team_1} - {fin_res} - {team_2}\n"
+                  f"-- {ha_ts}: {t1_ha_open}, {t1_ha_clos}\n"
+                  f"\t\t  {t2_ha_open}, {t2_ha_clos}\n"
+                  f"-- {handicap_ts}: {t1_handicap_open}, {t1_handicap_clos}\n"
+                  f"\t\t  {t2_handicap_open}, {t2_handicap_clos}"))

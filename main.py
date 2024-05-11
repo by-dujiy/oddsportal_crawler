@@ -1,4 +1,5 @@
-from crawler import aprove_cookie, scraping_eventrow, driver
+from crawler import aprove_cookie, driver
+from crawler import scraping_event_data, scraping_eventrow
 from db import Model, engine
 
 
