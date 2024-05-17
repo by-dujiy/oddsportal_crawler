@@ -1,6 +1,6 @@
 from crawler import aprove_cookie, driver
-from crawler import scraping_event_data, scraping_eventrow
-from db import Model, engine
+from crawler import scraping_data, scraping_eventrow
+from db import Model, engine, get_eventrow_url
 
 
 def refresh_db():
@@ -15,4 +15,7 @@ def run_crawler():
 
 
 if __name__ == '__main__':
-    run_crawler()
+    refresh_db()
+    aprove_cookie()
+    scraping_data()
+    driver.quit()
