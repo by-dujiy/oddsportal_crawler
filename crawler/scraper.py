@@ -131,6 +131,7 @@ def get_event_data():
                                  "//span[contains(@class, 'truncate')]")
     team_1 = teams[0].text
     team_2 = teams[1].text
+    logging.info(f"scraping... {date} {team_1} {fin_res} {team_2}")
     return {'date': date,
             'fin_res': fin_res,
             'team_1': team_1,
@@ -259,6 +260,9 @@ def scraping_data(first_year: int = 2016, last_year: int = 2024):
                 driver.implicitly_wait(10)
                 event_data = get_event_data()
                 if event_data['fin_res'] == 'canceled!':
+                    logging.info(
+                        f"{event_data['team_1']} {event_data['team_1']} - "
+                        f"{event_data['fin_res']}. processing next...")
                     continue
                 ha_data = get_home_away_data()
                 odds_items = driver.find_elements(
@@ -277,19 +281,6 @@ def scraping_data(first_year: int = 2016, last_year: int = 2024):
                 logging.info(f"processing {target}")
                 driver.implicitly_wait(10)
                 handicap_data = get_handicap_data(target)
-                add_event_data(
-                    date=event_data['date'],
-                    team_1=event_data['team_1'],
-                    team_2=event_data['team_2'],
-                    fin_res=event_data['fin_res'],
-                    ha_ts=ha_data['ha_ts'],
-                    t1_ha_open=ha_data['t1_ha_open'],
-                    t2_ha_open=ha_data['t2_ha_open'],
-                    t1_ha_clos=ha_data['t1_ha_clos'],
-                    t2_ha_clos=ha_data['t2_ha_clos'],
-                    handicap_ts=handicap_data['handicap_ts'],
-                    t1_handicap_open=handicap_data['t1_handicap_open'],
-                    t2_handicap_open=handicap_data['t2_handicap_open'],
-                    t1_handicap_clos=handicap_data['t1_handicap_clos'],
-                    t2_handicap_clos=handicap_data['t2_handicap_clos']
-                )
+                scraping_data = {**event_data, **ha_data, **handicap_data}
+                add_event_data(**scraping_data)
+                logging.info(f"added {scraping_data}")

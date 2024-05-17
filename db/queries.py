@@ -11,25 +11,21 @@ def get_eventrow_url(row_id):
     return session.scalar(row).event_url
 
 
-def add_event_data(date, team_1, team_2, fin_res, ha_ts, t1_ha_open,
-                   t1_ha_clos, t2_ha_open, t2_ha_clos, handicap_ts,
-                   t1_handicap_open, t1_handicap_clos, t2_handicap_open,
-                   t2_handicap_clos):
-
+def add_event_data(**kwargs):
     event = OddsData(
-        date=date,
-        team_1=team_1,
-        team_2=team_2,
-        fin_res=fin_res,
-        ha_ts=ha_ts,
-        t1_ha_open=t1_ha_open,
-        t2_ha_open=t2_ha_open,
-        t1_ha_clos=t1_ha_clos,
-        t2_ha_clos=t2_ha_clos,
-        handicap_ts=handicap_ts,
-        t1_handicap_open=t1_handicap_open,
-        t2_handicap_open=t2_handicap_open,
-        t1_handicap_clos=t1_handicap_clos,
-        t2_handicap_clos=t2_handicap_clos
+        date=kwargs['date'],
+        team_1=kwargs['team_1'],
+        team_2=kwargs['team_2'],
+        fin_res=kwargs['fin_res'],
+        ha_ts=kwargs['ha_ts'],
+        t1_ha_open=kwargs['t1_ha_open'],
+        t2_ha_open=kwargs['t2_ha_open'],
+        t1_ha_clos=kwargs['t1_ha_clos'],
+        t2_ha_clos=kwargs['t2_ha_clos'],
+        handicap_ts=kwargs['handicap_ts'],
+        t1_handicap_open=kwargs['t1_handicap_open'],
+        t2_handicap_open=kwargs['t2_handicap_open'],
+        t1_handicap_clos=kwargs['t1_handicap_clos'],
+        t2_handicap_clos=kwargs['t2_handicap_clos']
     )
     session.add(event)
