@@ -1,6 +1,6 @@
 from crawler import aprove_cookie, driver
 from crawler import scraping_data, scraping_eventrow
-from db import Model, engine, get_eventrow_url
+from db import Model, engine
 
 
 def refresh_db():

@@ -194,14 +194,22 @@ def scraping_event_data(event_url):
             item.click()
             sleep(1)
 
-    handicaps = driver.find_elements(
-        By.XPATH,
-        "//div[@class='relative flex flex-col']"
-        )
-    for hc in handicaps:
-        if hc.find_element(By.XPATH, "./div/div[2]/p[1]").text == target:
-            hc.click()
-            sleep(1)
+    while True:
+        handicaps = driver.find_elements(
+            By.XPATH,
+            "//div[@class='relative flex flex-col']"
+            )
+        target_hc = next((elem for elem in handicaps if elem.find_element(
+            By.XPATH,
+            "./div/div[2]/p[1]").text == target
+        ), None)
+        if target_hc is not None:
+            target_hc.click()
+            break
+        else:
+            logging.info("target handicap not found, try again!")
+            driver.refresh()
+            driver.implicitly_wait(10)
 
     while True:
         bet_elements = driver.find_elements(
