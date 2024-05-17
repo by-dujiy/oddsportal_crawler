@@ -116,9 +116,7 @@ def scraping_eventrow(first_year: int = 2024, last_year: int = 2024):
             scraping_urls(driver, year, p)
 
 
-def scraping_event_data(event_url):
-    driver.get(MAIN_URL+event_url[1:])
-    driver.implicitly_wait(10)
+def get_event_data():
     data_frame = elem_weiter("//main/div[3]/div[2]/div[1]/div[2]")
     date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
     # catching exception if event was canceled
@@ -129,14 +127,17 @@ def scraping_event_data(event_url):
         res = 'canceled!'
     finally:
         fin_res = res
-
     teams = driver.find_elements(By.XPATH,
                                  "//span[contains(@class, 'truncate')]")
     team_1 = teams[0].text
     team_2 = teams[1].text
-    logging.info(f"crawling {date} {team_1} - {team_2}")
-    # scraping home/away partition
-    # find particular bookbaker
+    return {'date': date,
+            'fin_res': fin_res,
+            'team_1': team_1,
+            'team_2': team_2}
+
+
+def get_home_away_data():
     while True:
         bookmakers = driver.find_elements(
             By.XPATH,
@@ -172,28 +173,14 @@ def scraping_event_data(event_url):
 
     t2_ha_open = ha_t2_tooltip.find_element(
         By.XPATH, "./div/div/div[2]/div[2]").text
+    return {'ha_ts': ha_ts,
+            't1_ha_clos': float(t1_ha_clos),
+            't1_ha_open': float(t1_ha_open),
+            't2_ha_clos': float(t2_ha_clos),
+            't2_ha_open': float(t2_ha_open)}
 
-    for item in driver.find_elements(By.XPATH,
-                                     "//li[contains(@class, 'odds-item')]"):
-        if item.find_element(By.XPATH, "./span/div").text == "Asian Handicap":
-            item.click()
 
-    if float(t1_ha_clos) < float(t1_ha_open):
-        target = "Asian Handicap +1.5"
-    else:
-        target = "Asian Handicap -1.5"
-
-    logging.info(f"processing {target}")
-
-    driver.implicitly_wait(10)
-    odds_items = driver.find_elements(
-        By.XPATH, "//li[contains(@class, 'odds-item')]")
-
-    for item in odds_items:
-        if item.find_element(By.XPATH, "./span/div").text == "Asian Handicap":
-            item.click()
-            sleep(1)
-
+def get_handicap_data(target_handicap):
     while True:
         handicaps = driver.find_elements(
             By.XPATH,
@@ -201,7 +188,7 @@ def scraping_event_data(event_url):
             )
         target_hc = next((elem for elem in handicaps if elem.find_element(
             By.XPATH,
-            "./div/div[2]/p[1]").text == target
+            "./div/div[2]/p[1]").text == target_handicap
         ), None)
         if target_hc is not None:
             target_hc.click()
@@ -237,6 +224,8 @@ def scraping_event_data(event_url):
     odd_toltip = elem_weiter("//div[contains(@class, 'tooltip')]")
     handicap_ts = odd_toltip.find_element(
                 By.XPATH, "./div/div/div[2]/div[1]").text
+    print(handicap_ts)
+    print(type(handicap_ts))
     t1_handicap_open = odd_toltip.find_element(
                 By.XPATH, "./div/div/div[2]/div[2]").text
     t1_handicap_clos = odd_toltip.find_element(
@@ -253,34 +242,54 @@ def scraping_event_data(event_url):
                 By.XPATH, "./div/div/div[2]/div[2]").text
     t2_handicap_clos = odd_toltip_t2.find_element(
                 By.XPATH, "./div/div/div[1]/div[2]/div").text
-
-    add_event_data(date=date,
-                   team_1=team_1,
-                   team_2=team_2,
-                   fin_res=fin_res,
-                   ha_ts=ha_ts,
-                   t1_ha_open=t1_ha_open,
-                   t2_ha_open=t2_ha_open,
-                   t1_ha_clos=t1_ha_clos,
-                   t2_ha_clos=t2_ha_clos,
-                   handicap_ts=handicap_ts,
-                   t1_handicap_open=t1_handicap_open,
-                   t2_handicap_open=t2_handicap_open,
-                   t1_handicap_clos=t1_handicap_clos,
-                   t2_handicap_clos=t2_handicap_clos)
-    logging.info((f"added event: {date}. {team_1} - {fin_res} - {team_2}\n"
-                  f"-- {ha_ts}: {t1_ha_open}, {t1_ha_clos}\n"
-                  f"\t\t  {t2_ha_open}, {t2_ha_clos}\n"
-                  f"-- {handicap_ts}: {t1_handicap_open}, {t1_handicap_clos}\n"
-                  f"\t\t  {t2_handicap_open}, {t2_handicap_clos}"))
+    return {'handicap_ts': handicap_ts,
+            't1_handicap_open': t1_handicap_open,
+            't1_handicap_clos': t1_handicap_clos,
+            't2_handicap_open': t2_handicap_open,
+            't2_handicap_clos': t2_handicap_clos}
 
 
 def scraping_data(first_year: int = 2016, last_year: int = 2024):
     for year in range(first_year, last_year+1):
-        logging.info(f"year {year}")
-        max_pagination = get_pagination(driver, year)
-        for p in range(1, int(max_pagination)+1):
-            logging.info(f"-- page: {p}")
+        pagination = get_pagination(driver, year)
+        for p in range(1, int(pagination)+1):
             event_urls = scraping_urls(driver, year, p)
             for url in event_urls:
-                scraping_event_data(url)
+                driver.get(MAIN_URL+url[1:])
+                driver.implicitly_wait(10)
+                event_data = get_event_data()
+                if event_data['fin_res'] == 'canceled!':
+                    continue
+                ha_data = get_home_away_data()
+                odds_items = driver.find_elements(
+                    By.XPATH,
+                    "//li[contains(@class, 'odds-item')]")
+                for item in odds_items:
+                    item_name = item.find_element(By.XPATH, "./span/div").text
+                    if item_name == "Asian Handicap":
+                        item.click()
+                        driver.implicitly_wait(10)
+
+                if ha_data['t1_ha_clos'] < ha_data['t1_ha_open']:
+                    target = "Asian Handicap +1.5"
+                else:
+                    target = "Asian Handicap -1.5"
+                logging.info(f"processing {target}")
+                driver.implicitly_wait(10)
+                handicap_data = get_handicap_data(target)
+                add_event_data(
+                    date=event_data['date'],
+                    team_1=event_data['team_1'],
+                    team_2=event_data['team_2'],
+                    fin_res=event_data['fin_res'],
+                    ha_ts=ha_data['ha_ts'],
+                    t1_ha_open=ha_data['t1_ha_open'],
+                    t2_ha_open=ha_data['t2_ha_open'],
+                    t1_ha_clos=ha_data['t1_ha_clos'],
+                    t2_ha_clos=ha_data['t2_ha_clos'],
+                    handicap_ts=handicap_data['handicap_ts'],
+                    t1_handicap_open=handicap_data['t1_handicap_open'],
+                    t2_handicap_open=handicap_data['t2_handicap_open'],
+                    t1_handicap_clos=handicap_data['t1_handicap_clos'],
+                    t2_handicap_clos=handicap_data['t2_handicap_clos']
+                )
