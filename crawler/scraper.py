@@ -80,6 +80,16 @@ def elem_weiter(xpath_selector: str):
     return result
 
 
+def tooltip_elem_weiter(toltip_elem, xpath_selector):
+    result = WebDriverWait(toltip_elem, timeout=20).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            xpath_selector
+        ))
+    )
+    return result
+
+
 def scraping_urls(driver, year, page):
     if year == CURRENT_YEAR:
         driver.get(f"{MAIN_URL}baseball/usa/mlb/results/#/page/{page}/")
@@ -159,21 +169,19 @@ def get_home_away_data():
         By.XPATH, "./div[2]//p[contains(@class, 'height-content')]")
     ActionChains(driver).move_to_element(ha_t1_clos_odd_elem).perform()
     t1_ha_clos = ha_t1_clos_odd_elem.text
-
     ha_t1_tooltip = elem_weiter("//div[contains(@class, 'tooltip')]")
-    ha_ts = ha_t1_tooltip.find_element(
-        By.XPATH, "./div/div/div[2]/div[1]").text
-    t1_ha_open = ha_t1_tooltip.find_element(
-        By.XPATH, "./div/div/div[2]/div[2]").text
-    # team 2 tooltip processing
+    ha_ts = tooltip_elem_weiter(ha_t1_tooltip,
+                                "./div/div/div[2]/div[1]").text
+    t1_ha_open = tooltip_elem_weiter(ha_t1_tooltip,
+                                     "./div/div/div[2]/div[2]").text
     t2_ha_clos_elem = pinnacle_elem.find_element(
         By.XPATH, "./div[3]//p[contains(@class, 'height-content')]")
     t2_ha_clos = t2_ha_clos_elem.text
     ActionChains(driver).move_to_element(t2_ha_clos_elem).perform()
     ha_t2_tooltip = elem_weiter("//div[contains(@class, 'tooltip')]")
+    t2_ha_open = tooltip_elem_weiter(ha_t2_tooltip,
+                                     "./div/div/div[2]/div[2]").text
 
-    t2_ha_open = ha_t2_tooltip.find_element(
-        By.XPATH, "./div/div/div[2]/div[2]").text
     return {'ha_ts': ha_ts,
             't1_ha_clos': float(t1_ha_clos),
             't1_ha_open': float(t1_ha_open),
@@ -225,8 +233,6 @@ def get_handicap_data(target_handicap):
     odd_toltip = elem_weiter("//div[contains(@class, 'tooltip')]")
     handicap_ts = odd_toltip.find_element(
                 By.XPATH, "./div/div/div[2]/div[1]").text
-    print(handicap_ts)
-    print(type(handicap_ts))
     t1_handicap_open = odd_toltip.find_element(
                 By.XPATH, "./div/div/div[2]/div[2]").text
     t1_handicap_clos = odd_toltip.find_element(
