@@ -71,22 +71,34 @@ def get_pagination(driver, year: int) -> int:
 
 
 def elem_weiter(xpath_selector: str):
-    result = WebDriverWait(driver, timeout=20).until(
-        EC.presence_of_element_located((
-            By.XPATH,
-            xpath_selector
-        ))
-    )
+    while True:
+        result = WebDriverWait(driver, timeout=20).until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                xpath_selector
+            ))
+        )
+        if result is not None:
+            break
+        else:
+            logging.info(f"elem '{xpath_selector}' not found, try again")
+            sleep(5)
     return result
 
 
-def tooltip_elem_weiter(toltip_elem, xpath_selector):
-    result = WebDriverWait(toltip_elem, timeout=20).until(
-        EC.presence_of_element_located((
-            By.XPATH,
-            xpath_selector
-        ))
-    )
+def subelem_weiter(toltip_elem, xpath_selector):
+    while True:
+        result = WebDriverWait(toltip_elem, timeout=20).until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                xpath_selector
+            ))
+        )
+        if result is not None:
+            break
+        else:
+            logging.info(f"sub_elem '{xpath_selector}' not found, try again")
+            sleep(5)
     return result
 
 
@@ -128,7 +140,7 @@ def scraping_eventrow(first_year: int = 2024, last_year: int = 2024):
 
 def get_event_data():
     data_frame = elem_weiter("//main/div[3]/div[2]/div[1]/div[2]")
-    date = data_frame.find_element(By.XPATH, "./div[1]/p[2]").text
+    date = subelem_weiter(data_frame, "./div[1]/p[2]").text
     # catching exception if event was canceled
     try:
         res = data_frame.find_element(By.XPATH,
@@ -137,7 +149,8 @@ def get_event_data():
         res = 'canceled!'
     finally:
         fin_res = res
-    teams = driver.find_elements(By.XPATH,
+    teams = driver.find_elements(
+                                 By.XPATH,
                                  "//span[contains(@class, 'truncate')]")
     team_1 = teams[0].text
     team_2 = teams[1].text
@@ -149,11 +162,14 @@ def get_event_data():
 
 
 def get_home_away_data():
+    # bug!
     while True:
+        driver.implicitly_wait(10)
         bookmakers = driver.find_elements(
             By.XPATH,
             "//div[contains(@class, 'border-black-borders flex h-9 border-b')]"
             )
+        logging.info(f"home/away bookmakers count {len(bookmakers)}")
         pinnacle_elem = next((
             elem for elem in bookmakers if elem.find_element(
                 By.XPATH,
@@ -161,26 +177,28 @@ def get_home_away_data():
         if pinnacle_elem is not None:
             break
         else:
-            logging.info("pinnacle elem not found, try again!")
+            logging.info("home/away pinnacle elem not found, try again!")
             driver.refresh()
-            driver.implicitly_wait(10)
+            sleep(10)
 
-    ha_t1_clos_odd_elem = pinnacle_elem.find_element(
-        By.XPATH, "./div[2]//p[contains(@class, 'height-content')]")
+    ha_t1_clos_odd_elem = subelem_weiter(
+        pinnacle_elem,
+        "./div[2]//p[contains(@class, 'height-content')]")
     ActionChains(driver).move_to_element(ha_t1_clos_odd_elem).perform()
     t1_ha_clos = ha_t1_clos_odd_elem.text
     ha_t1_tooltip = elem_weiter("//div[contains(@class, 'tooltip')]")
-    ha_ts = tooltip_elem_weiter(ha_t1_tooltip,
-                                "./div/div/div[2]/div[1]").text
-    t1_ha_open = tooltip_elem_weiter(ha_t1_tooltip,
-                                     "./div/div/div[2]/div[2]").text
-    t2_ha_clos_elem = pinnacle_elem.find_element(
-        By.XPATH, "./div[3]//p[contains(@class, 'height-content')]")
+    ha_ts = subelem_weiter(ha_t1_tooltip,
+                           "./div/div/div[2]/div[1]").text
+    t1_ha_open = subelem_weiter(ha_t1_tooltip,
+                                "./div/div/div[2]/div[2]").text
+    t2_ha_clos_elem = subelem_weiter(
+        pinnacle_elem,
+        "./div[3]//p[contains(@class, 'height-content')]")
     t2_ha_clos = t2_ha_clos_elem.text
     ActionChains(driver).move_to_element(t2_ha_clos_elem).perform()
     ha_t2_tooltip = elem_weiter("//div[contains(@class, 'tooltip')]")
-    t2_ha_open = tooltip_elem_weiter(ha_t2_tooltip,
-                                     "./div/div/div[2]/div[2]").text
+    t2_ha_open = subelem_weiter(ha_t2_tooltip,
+                                "./div/div/div[2]/div[2]").text
 
     return {'ha_ts': ha_ts,
             't1_ha_clos': float(t1_ha_clos),
@@ -190,11 +208,14 @@ def get_home_away_data():
 
 
 def get_handicap_data(target_handicap):
+    # bug!
     while True:
+        driver.implicitly_wait(10)
         handicaps = driver.find_elements(
             By.XPATH,
             "//div[@class='relative flex flex-col']"
             )
+        logging.info(f"handicaps count {len(handicaps)}")
         target_hc = next((elem for elem in handicaps if elem.find_element(
             By.XPATH,
             "./div/div[2]/p[1]").text == target_handicap
@@ -205,9 +226,10 @@ def get_handicap_data(target_handicap):
         else:
             logging.info("target handicap not found, try again!")
             driver.refresh()
-            driver.implicitly_wait(10)
+            sleep(10)
 
     while True:
+        driver.implicitly_wait(10)
         bet_elements = driver.find_elements(
             By.XPATH,
             "//div[contains(@class, ' border-black-borders border-b')]"
@@ -219,9 +241,9 @@ def get_handicap_data(target_handicap):
         if pinnacle_elem is not None:
             break
         else:
-            logging.info("pinnacle elem not found, try again!")
+            logging.info("handicaps pinnacle elem not found, try again!")
             driver.refresh()
-            driver.implicitly_wait(10)
+            sleep(10)
 
     odd_score = WebDriverWait(pinnacle_elem, timeout=20).until(
         EC.presence_of_element_located((
@@ -231,13 +253,12 @@ def get_handicap_data(target_handicap):
     )
     ActionChains(driver).move_to_element(odd_score).perform()
     odd_toltip = elem_weiter("//div[contains(@class, 'tooltip')]")
-    handicap_ts = odd_toltip.find_element(
-                By.XPATH, "./div/div/div[2]/div[1]").text
-    t1_handicap_open = odd_toltip.find_element(
-                By.XPATH, "./div/div/div[2]/div[2]").text
-    t1_handicap_clos = odd_toltip.find_element(
-                By.XPATH, "./div/div/div[1]/div[2]/div").text
-
+    handicap_ts = subelem_weiter(odd_toltip,
+                                 "./div/div/div[2]/div[1]").text
+    t1_handicap_open = subelem_weiter(odd_toltip,
+                                      "./div/div/div[2]/div[2]").text
+    t1_handicap_clos = subelem_weiter(odd_toltip,
+                                      "./div/div/div[1]/div[2]/div").text
     odd_score_t2 = pinnacle_elem.find_element(
                 By.XPATH,
                 "./div[4]//p[contains(@class, 'height-content')]"
@@ -245,10 +266,12 @@ def get_handicap_data(target_handicap):
     ActionChains(driver).move_to_element(odd_score_t2).perform()
     odd_toltip_t2 = elem_weiter("//div[contains(@class, 'tooltip')]")
 
-    t2_handicap_open = odd_toltip_t2.find_element(
-                By.XPATH, "./div/div/div[2]/div[2]").text
-    t2_handicap_clos = odd_toltip_t2.find_element(
-                By.XPATH, "./div/div/div[1]/div[2]/div").text
+    t2_handicap_open = subelem_weiter(
+        odd_toltip_t2,
+        "./div/div/div[2]/div[2]").text
+    t2_handicap_clos = subelem_weiter(
+        odd_toltip_t2,
+        "./div/div/div[1]/div[2]/div").text
     return {'handicap_ts': handicap_ts,
             't1_handicap_open': t1_handicap_open,
             't1_handicap_clos': t1_handicap_clos,
