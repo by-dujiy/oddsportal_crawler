@@ -4,7 +4,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver import ActionChains
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from .utility import get_from_settings
@@ -71,34 +72,23 @@ def get_pagination(driver, year: int) -> int:
 
 
 def elem_weiter(xpath_selector: str):
-    while True:
-        result = WebDriverWait(driver, timeout=20).until(
-            EC.presence_of_element_located((
-                By.XPATH,
-                xpath_selector
-            ))
-        )
-        if result is not None:
-            break
-        else:
-            logging.info(f"elem '{xpath_selector}' not found, try again")
-            sleep(5)
+    result = WebDriverWait(driver, timeout=20).until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            xpath_selector
+        ))
+    )
+    if result is None:
+        raise NoSuchElementException
     return result
 
 
 def subelem_weiter(toltip_elem, xpath_selector):
-    while True:
-        result = WebDriverWait(toltip_elem, timeout=20).until(
-            EC.presence_of_element_located((
-                By.XPATH,
-                xpath_selector
-            ))
-        )
-        if result is not None:
-            break
-        else:
-            logging.info(f"sub_elem '{xpath_selector}' not found, try again")
-            sleep(5)
+    result = WebDriverWait(toltip_elem, timeout=20).until(
+        EC.presence_of_element_located((By.XPATH, xpath_selector))
+    )
+    if result is None:
+        raise NoSuchElementException
     return result
 
 
@@ -162,24 +152,16 @@ def get_event_data():
 
 
 def get_home_away_data():
-    # bug!
-    while True:
-        driver.implicitly_wait(10)
-        bookmakers = driver.find_elements(
-            By.XPATH,
-            "//div[contains(@class, 'border-black-borders flex h-9 border-b')]"
-            )
-        logging.info(f"home/away bookmakers count {len(bookmakers)}")
-        pinnacle_elem = next((
-            elem for elem in bookmakers if elem.find_element(
-                By.XPATH,
-                "./div/a[2]/p").text == 'Pinnacle'), None)
-        if pinnacle_elem is not None:
-            break
-        else:
-            logging.info("home/away pinnacle elem not found, try again!")
-            driver.refresh()
-            sleep(10)
+    driver.implicitly_wait(10)
+    bookmakers = driver.find_elements(
+        By.XPATH,
+        "//div[contains(@class, 'border-black-borders flex h-9 border-b')]"
+    )
+    logging.info(f"home/away bookmakers count {len(bookmakers)}")
+    pinnacle_elem = next((elem for elem in bookmakers if elem.find_element(
+        By.XPATH, "./div/a[2]/p").text == 'Pinnacle'), None)
+    if pinnacle_elem is None:
+        raise NoSuchElementException
 
     ha_t1_clos_odd_elem = subelem_weiter(
         pinnacle_elem,
@@ -208,42 +190,27 @@ def get_home_away_data():
 
 
 def get_handicap_data(target_handicap):
-    # bug!
-    while True:
-        driver.implicitly_wait(10)
-        handicaps = driver.find_elements(
+    handicaps = driver.find_elements(
             By.XPATH,
             "//div[@class='relative flex flex-col']"
             )
-        logging.info(f"handicaps count {len(handicaps)}")
-        target_hc = next((elem for elem in handicaps if elem.find_element(
-            By.XPATH,
-            "./div/div[2]/p[1]").text == target_handicap
-        ), None)
-        if target_hc is not None:
-            target_hc.click()
-            break
-        else:
-            logging.info("target handicap not found, try again!")
-            driver.refresh()
-            sleep(10)
-
-    while True:
+    logging.info(f"handicaps count {len(handicaps)}")
+    target_hc = next((elem for elem in handicaps if elem.find_element(
+        By.XPATH, "./div/div[2]/p[1]").text == target_handicap), None)
+    if target_hc is not None:
+        target_hc.click()
         driver.implicitly_wait(10)
-        bet_elements = driver.find_elements(
-            By.XPATH,
-            "//div[contains(@class, ' border-black-borders border-b')]"
-        )
-        pinnacle_elem = next((
-            elem for elem in bet_elements if elem.find_element(
-                By.XPATH,
-                "./div[1]/a[2]/p").text == 'Pinnacle'), None)
-        if pinnacle_elem is not None:
-            break
-        else:
-            logging.info("handicaps pinnacle elem not found, try again!")
-            driver.refresh()
-            sleep(10)
+    else:
+        logging.info(f"{target_handicap} handicap not found!")
+        raise NoSuchElementException
+
+    bet_elements = driver.find_elements(
+        By.XPATH, "//div[contains(@class, ' border-black-borders border-b')]")
+    pinnacle_elem = next((elem for elem in bet_elements if elem.find_element(
+        By.XPATH, "./div[1]/a[2]/p").text == 'Pinnacle'), None)
+    if pinnacle_elem is None:
+        logging.info("handicaps pinnacle elem not found")
+        raise NoSuchElementException
 
     odd_score = WebDriverWait(pinnacle_elem, timeout=20).until(
         EC.presence_of_element_located((
@@ -279,24 +246,21 @@ def get_handicap_data(target_handicap):
             't2_handicap_clos': t2_handicap_clos}
 
 
-def scraping_data(first_year: int = 2016, last_year: int = 2024):
-    for year in range(first_year, last_year+1):
-        pagination = get_pagination(driver, year)
-        for p in range(1, int(pagination)+1):
-            event_urls = scraping_urls(driver, year, p)
-            for url in event_urls:
-                driver.get(MAIN_URL+url[1:])
-                driver.implicitly_wait(10)
-                event_data = get_event_data()
-                if event_data['fin_res'] == 'canceled!':
-                    logging.info(
-                        f"{event_data['team_1']} {event_data['team_1']} - "
-                        f"{event_data['fin_res']}. processing next...")
-                    continue
+def processing_event_data(event_url):
+    while True:
+        try:
+            driver.get(MAIN_URL+event_url[1:])
+            driver.implicitly_wait(10)
+            event_data = get_event_data()
+            if event_data['fin_res'] == 'canceled!':
+                logging.info(
+                    f"{event_data['team_1']} {event_data['team_1']} - "
+                    f"{event_data['fin_res']}. processing next...")
+                return None
+            else:
                 ha_data = get_home_away_data()
                 odds_items = driver.find_elements(
-                    By.XPATH,
-                    "//li[contains(@class, 'odds-item')]")
+                    By.XPATH, "//li[contains(@class, 'odds-item')]")
                 for item in odds_items:
                     item_name = item.find_element(By.XPATH, "./span/div").text
                     if item_name == "Asian Handicap":
@@ -308,8 +272,25 @@ def scraping_data(first_year: int = 2016, last_year: int = 2024):
                 else:
                     target = "Asian Handicap -1.5"
                 logging.info(f"processing {target}")
-                driver.implicitly_wait(10)
                 handicap_data = get_handicap_data(target)
-                scraping_data = {**event_data, **ha_data, **handicap_data}
-                add_event_data(**scraping_data)
-                logging.info(f"added {scraping_data}")
+                return {**event_data, **ha_data, **handicap_data}
+        except (NoSuchElementException,
+                TimeoutException,
+                StaleElementReferenceException) as e:
+            logging.info(f"{e} occur... try again")
+            sleep(5)
+            driver.refresh()
+            sleep(5)
+            continue
+
+
+def scraping_data(first_year: int = 2016, last_year: int = 2024):
+    for year in range(first_year, last_year+1):
+        pagination = get_pagination(driver, year)
+        for p in range(1, int(pagination)+1):
+            event_urls = scraping_urls(driver, year, p)
+            for url in event_urls:
+                data = processing_event_data(url)
+                if data:
+                    add_event_data(**data)
+                    logging.info(f"added {data}")
