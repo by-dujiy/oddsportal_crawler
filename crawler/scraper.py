@@ -92,7 +92,7 @@ def subelem_weiter(toltip_elem, xpath_selector):
     return result
 
 
-def scraping_urls(driver, year, page):
+def scraping_urls(driver, year, page) -> list[str]:
     if year == CURRENT_YEAR:
         driver.get(f"{MAIN_URL}baseball/usa/mlb/results/#/page/{page}/")
     else:
@@ -113,19 +113,6 @@ def scraping_urls(driver, year, page):
     soup = BeautifulSoup(driver.page_source, "lxml")
     events = soup.find_all('div', class_='eventRow')
     return [event.find('a', class_='w-full').get('href') for event in events]
-
-
-def scraping_eventrow(first_year: int = 2024, last_year: int = 2024):
-    """
-    Composite function for scraping event rows
-    Scraping even url's from pages and save in db
-    """
-    for year in range(first_year, last_year+1):
-        logging.info(f"year {year}")
-        max_pagination = get_pagination(driver, year)
-        for p in range(1, int(max_pagination)+1):
-            logging.info(f"-- page: {p}")
-            scraping_urls(driver, year, p)
 
 
 def get_event_data():
@@ -205,7 +192,7 @@ def get_handicap_data(target_handicap):
         raise NoSuchElementException
 
     bet_elements = driver.find_elements(
-        By.XPATH, "//div[contains(@class, ' border-black-borders border-b')]")
+        By.XPATH, "//div[contains(@class, 'border-black-borders flex h-9')]")
     pinnacle_elem = next((elem for elem in bet_elements if elem.find_element(
         By.XPATH, "./div[1]/a[2]/p").text == 'Pinnacle'), None)
     if pinnacle_elem is None:
@@ -247,6 +234,7 @@ def get_handicap_data(target_handicap):
 
 
 def processing_event_data(event_url):
+    count = 0
     while True:
         try:
             driver.get(MAIN_URL+event_url[1:])
@@ -277,10 +265,29 @@ def processing_event_data(event_url):
         except (NoSuchElementException,
                 TimeoutException,
                 StaleElementReferenceException) as e:
-            logging.info(f"{e} occur... try again")
+            logging.info(f"{e} occur... try again, count {count}")
+            count += 1
             sleep(5)
             driver.refresh()
             sleep(5)
+            if count >= 5:
+                count += 1
+                driver.close()
+                sleep(5)
+                driver.start_session({})
+                driver.maximize_window()
+                aprove_cookie()
+                sleep(5)
+                if count >= 10:
+                    fha_data = {'ha_ts': None, 't1_ha_clos': None,
+                                't1_ha_open': None, 't2_ha_clos': None,
+                                't2_ha_open': None}
+                    fhandicap_data = {'handicap_ts': None,
+                                      't1_handicap_open': None,
+                                      't1_handicap_clos': None,
+                                      't2_handicap_open': None,
+                                      't2_handicap_clos': None}
+                    return {**event_data, **fha_data, **fhandicap_data}
             continue
 
 

@@ -1,17 +1,5 @@
 from .db import Model
-from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
-
-
-class EventRow(Model):
-    __tablename__ = 'event_rows'
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    event_id: Mapped[str] = mapped_column(String(8))
-    event_url: Mapped[str] = mapped_column(unique=True)
-
-    def __repr__(self):
-        return f"EventRow({self.id}, {self.event_id}, {self.event_url})"
 
 
 class OddsData(Model):

@@ -28,4 +28,5 @@ def add_event_data(**kwargs):
         t1_handicap_clos=kwargs['t1_handicap_clos'],
         t2_handicap_clos=kwargs['t2_handicap_clos']
     )
-    session.add(event)
+    with session.begin():
+        session.add(event)
